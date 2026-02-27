@@ -5,13 +5,12 @@
 // ----------------------------------------------------------------------
 //  Crypto Intermarket Correlation (CIC)
 //  On GitHub: https://github.com/realanthonyc/Crypto-Intermarket-Correlation
-//  v1.0.0
+//  v1.0.2
 // ----------------------------------------------------------------------
 indicator("Crypto Intermarket Correlation", shorttitle="CIC", overlay=false, precision=2)
 
-// ==========================================
 // Inputs
-// ==========================================
+
 int    length    = input.int(30, "Correlation Lookback", minval=2, tooltip="Bars used for correlation calculation.")
 string sym_btc   = input.symbol("BINANCE:BTCUSDT", "BTC Symbol")
 string sym_eth   = input.symbol("BINANCE:ETHUSDT", "ETH Symbol")
@@ -24,26 +23,23 @@ float th_decouple = input.float(0.25, "Decouple Threshold", minval=0.0, maxval=1
 
 bool show_bg   = input.bool(true, "Show Regime Background")
 
-// ==========================================
 // Data (non-repainting)
-// ==========================================
+
 btc_close   = request.security(sym_btc, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
 eth_close   = request.security(sym_eth, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
 bench_close = request.security(sym_bench, timeframe.period, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
 
-// ==========================================
-// Helpers (single-line)
-// ==========================================
+// Helpers
+
 f_logret(src) => (not na(src) and not na(src[1]) and src > 0 and src[1] > 0) ? math.log(src / src[1]) : na
 f_series(src) => mode == "Returns" ? f_logret(src) : src
 f_state(v) => na(v) ? "NA" : v >= th_sync ? "Sync" : v >= th_decouple ? "Loose" : "Decouple"
-f_bg(v) => na(v) ? na : v >= th_sync ? color.new(color.green, 90) : v < th_decouple ? color.new(color.red, 90) : na
+f_bg(v) => na(v) ? na : v >= th_sync ? color.new(color.aqua, 90) : v < th_decouple ? color.new(color.gray, 90) : na
 f_fmt(v) => na(v) ? "na" : str.tostring(v, "#.##")
 f_ticker(sym) => str.contains(sym, ":") ? (array.size(str.split(sym, ":")) >= 2 ? array.get(str.split(sym, ":"), 1) : sym) : sym
 
-// ==========================================
 // Correlation
-// ==========================================
+
 btc_src   = f_series(btc_close)
 eth_src   = f_series(eth_close)
 bench_src = f_series(bench_close)
@@ -54,9 +50,8 @@ eth_corr = ta.correlation(eth_src, bench_src, length)
 avg_corr  = (btc_corr + eth_corr) / 2.0
 bench_tkr = f_ticker(sym_bench)
 
-// ==========================================
 // Visual
-// ==========================================
+
 hline(th_sync, "Sync Threshold", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
 hline(0,       "Zero",           color=color.new(color.gray, 50), linestyle=hline.style_dashed)
 
@@ -65,9 +60,8 @@ bgcolor(show_bg ? f_bg(avg_corr) : na)
 plot(btc_corr, "BTC Sync", color=color.orange, linewidth=2)
 plot(eth_corr, "ETH Sync", color=color.blue, linewidth=2)
 
-// ==========================================
 // Table
-// ==========================================
+
 var table t = table.new(position.top_right, 2, 3, border_width=1, frame_color=color.gray)
 
 avg_text = f_state(avg_corr)
@@ -75,11 +69,11 @@ btc_text = f_fmt(btc_corr) + " (" + f_state(btc_corr) + ")"
 eth_text = f_fmt(eth_corr) + " (" + f_state(eth_corr) + ")"
 
 if barstate.islast
-    table.cell(t, 0, 0, "Regime (Avg)", bgcolor=color.new(color.gray, 0), text_color=color.white, text_size=size.small)
-    table.cell(t, 1, 0, avg_text,       bgcolor=color.new(color.gray, 88), text_color=color.black, text_size=size.small)
+    table.cell(t, 0, 0, "BTC / " + bench_tkr, bgcolor=color.new(color.gray, 0), text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 0, btc_text,             bgcolor=color.new(color.gray, 88), text_color=color.black, text_size=size.small)
 
-    table.cell(t, 0, 1, "BTC / " + bench_tkr, bgcolor=color.new(color.gray, 0), text_color=color.white, text_size=size.small)
-    table.cell(t, 1, 1, btc_text,             bgcolor=color.new(color.gray, 88), text_color=color.black, text_size=size.small)
+    table.cell(t, 0, 1, "ETH / " + bench_tkr, bgcolor=color.new(color.gray, 0), text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 1, eth_text,             bgcolor=color.new(color.gray, 88), text_color=color.black, text_size=size.small)
 
-    table.cell(t, 0, 2, "ETH / " + bench_tkr, bgcolor=color.new(color.gray, 0), text_color=color.white, text_size=size.small)
-    table.cell(t, 1, 2, eth_text,             bgcolor=color.new(color.gray, 88), text_color=color.black, text_size=size.small)
+    table.cell(t, 0, 2, "Regime", bgcolor=color.new(color.gray, 0), text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 2, avg_text, bgcolor=color.new(color.gray, 88), text_color=color.black, text_size=size.small)
