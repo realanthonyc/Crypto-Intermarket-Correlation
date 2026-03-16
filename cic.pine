@@ -5,7 +5,7 @@
 // ----------------------------------------------------------------------
 //  Crypto Intermarket Correlation (CIC)
 //  On GitHub: https://github.com/realanthonyc/Crypto-Intermarket-Correlation
-//  v1.0.2
+//  v1.0.3
 // ----------------------------------------------------------------------
 indicator("Crypto Intermarket Correlation", shorttitle="CIC", overlay=false, precision=2)
 
@@ -22,6 +22,8 @@ float th_sync     = input.float(0.50, "Sync Threshold (dashed line)", minval=0.0
 float th_decouple = input.float(0.25, "Decouple Threshold", minval=0.0, maxval=1.0, step=0.05)
 
 bool show_bg   = input.bool(true, "Show Regime Background")
+string regime_smoothing_mode = input.string("Auto", "Regime Smoothing", options=["Auto", "Manual"], tooltip="Auto adjusts smoothing by chart timeframe. Manual uses the bar count below.")
+int regime_smoothing_manual = input.int(3, "Manual Regime Smoothing Bars", minval=1, tooltip="Bars used to smooth the average correlation before classifying the regime.")
 
 // Data (non-repainting)
 
@@ -37,6 +39,11 @@ f_state(v) => na(v) ? "NA" : v >= th_sync ? "Sync" : v >= th_decouple ? "Loose" 
 f_bg(v) => na(v) ? na : v >= th_sync ? color.new(color.aqua, 90) : v < th_decouple ? color.new(color.gray, 90) : na
 f_fmt(v) => na(v) ? "na" : str.tostring(v, "#.##")
 f_ticker(sym) => str.contains(sym, ":") ? (array.size(str.split(sym, ":")) >= 2 ? array.get(str.split(sym, ":"), 1) : sym) : sym
+f_auto_regime_smoothing() =>
+    timeframe.ismonthly or timeframe.isweekly ? 1 :
+     timeframe.isdaily ? 3 :
+     timeframe.isminutes ? (timeframe.multiplier < 5 ? 8 : timeframe.multiplier < 30 ? 5 : 3) :
+     timeframe.isseconds ? 8 : 3
 
 // Correlation
 
@@ -48,6 +55,8 @@ btc_corr = ta.correlation(btc_src, bench_src, length)
 eth_corr = ta.correlation(eth_src, bench_src, length)
 
 avg_corr  = (btc_corr + eth_corr) / 2.0
+regime_smoothing = regime_smoothing_mode == "Auto" ? f_auto_regime_smoothing() : regime_smoothing_manual
+regime_corr = regime_smoothing > 1 ? ta.sma(avg_corr, regime_smoothing) : avg_corr
 bench_tkr = f_ticker(sym_bench)
 
 // Visual
@@ -55,7 +64,7 @@ bench_tkr = f_ticker(sym_bench)
 hline(th_sync, "Sync Threshold", color=color.new(color.gray, 50), linestyle=hline.style_dashed)
 hline(0,       "Zero",           color=color.new(color.gray, 50), linestyle=hline.style_dashed)
 
-bgcolor(show_bg ? f_bg(avg_corr) : na)
+bgcolor(show_bg ? f_bg(regime_corr) : na)
 
 plot(btc_corr, "BTC Sync", color=color.orange, linewidth=2)
 plot(eth_corr, "ETH Sync", color=color.blue, linewidth=2)
@@ -64,7 +73,7 @@ plot(eth_corr, "ETH Sync", color=color.blue, linewidth=2)
 
 var table t = table.new(position.top_right, 2, 3, border_width=1, frame_color=color.gray)
 
-avg_text = f_state(avg_corr)
+avg_text = f_state(regime_corr)
 btc_text = f_fmt(btc_corr) + " (" + f_state(btc_corr) + ")"
 eth_text = f_fmt(eth_corr) + " (" + f_state(eth_corr) + ")"
 

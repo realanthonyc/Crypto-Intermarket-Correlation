@@ -8,7 +8,7 @@ Use it to quickly assess whether crypto is behaving like a high-beta extension o
 
 - Rolling Pearson correlation for `BTC` vs the benchmark
 - Rolling Pearson correlation for `ETH` vs the benchmark
-- A regime label (Sync / Loose / Decouple, computed from the average of BTC and ETH correlation) and optional background highlighting
+- A regime label (Sync / Loose / Decouple, computed from the average of BTC and ETH correlation, with optional smoothing) and optional background highlighting
 
 ## How it works
 
@@ -28,6 +28,16 @@ The indicator classifies the **average** of BTC and ETH correlation into three r
 | `>= 0.50` | Sync |
 | `0.25 – 0.50` | Loose |
 | `< 0.25` | Decouple |
+
+By default, the regime uses automatic smoothing based on the chart timeframe:
+
+- Weekly and above: `1`
+- Daily to `30m`: `3`
+- `5m` to below `30m`: `5`
+- Below `5m`: `8`
+- Non-standard charts: `3`
+
+You can switch to manual smoothing and set the number of bars directly.
 
 If enabled, the background is:
 
